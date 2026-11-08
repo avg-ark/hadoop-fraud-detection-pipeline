@@ -14,17 +14,19 @@ and a with/without-Combiner comparison.
 ├── run_local.sh           # same jobs simulated locally (cat | map | sort | reduce), no Hadoop
 ├── src/
 │   ├── cleaning/          # job 1: clean_mapper.py, clean_reducer.py
-│   ├── analysis/          # job 2: fraud_mapper.py, fraud_combiner.py, fraud_reducer.py
+│   ├── analysis/          # job 2: fraud_mapper.py, fraud_combiner.py, fraud_reducer.py,
+│   │                      #        rank_results.py (ranking + confidence intervals)
 │   ├── visualize/         # plot_results.py
 │   └── tools/             # gen_synthetic.py (synthetic test data generator)
 ├── data/                  # creditcard.csv goes here (not in git, see data/README.md)
 ├── results/
 │   ├── results.tsv        # final validated output
+│   ├── ranking.tsv        # ranked buckets with 95% confidence intervals
 │   ├── charts/            # fraud_by_hour.png, fraud_by_amount.png, combiner_shuffle.png
 │   └── validation/        # with-Combiner vs without-Combiner outputs (identical)
 ├── logs/
 │   └── counters_summary.txt   # key Hadoop counters (full run_log.txt stays local)
-└── docs/                  # architecture diagram and report
+└── docs/                  # architecture diagram (architecture.png / .mmd) and report
 ```
 
 ## Dataset
@@ -57,6 +59,10 @@ Citation requested by the dataset owners: Dal Pozzolo, Caelen, Johnson and Bonte
 testing the pipeline only and are not real transactions.
 
 ## Architecture and dataflow
+
+![Architecture and dataflow](docs/architecture.png)
+
+Text version:
 
 ```
 data/creditcard.csv
@@ -118,6 +124,7 @@ field and the reducer receives wrong groups.
 # 1. put creditcard.csv in data/, start HDFS and YARN (start-dfs.sh, start-yarn.sh)
 bash run_pipeline.sh                      # also writes logs/run_log.txt
 python3 src/visualize/plot_results.py     # charts into results/charts/
+python3 src/analysis/rank_results.py      # ranking + confidence intervals -> results/ranking.tsv
 ```
 
 `run_pipeline.sh` ingests the data, runs both jobs, runs the analysis a second time without the
@@ -151,12 +158,18 @@ dominates. A time saving would be expected only on larger data or a multi-node c
 
 ## Findings
 
-See `results/results.tsv` and the charts. In this two-day sample:
+Ranked by fraud rate with 95% Wilson confidence intervals (`results/ranking.tsv`). Overall rate:
+0.167%. A bucket is called reliable only if it has at least 20 fraud cases and its whole interval
+lies above (or below) the overall rate.
 
-- Fraud is concentrated in a few hours: hours 02 and 04 (counted from the start of the data) have
-  the highest fraud rates, several times the overall average, while traffic there is low.
-- Fraud rates are higher in the smallest (under 1) and the 500-1000 amount bands than in the
-  10-50 band; the 1-10 band holds the largest number of fraud cases.
+- **Hour of day (hours since the first transaction):** hour 02 is the riskiest, 1.45% fraud
+  (48 of 3,308 transactions, 8.7x the average), then hour 04 at 1.04% (23 of 2,204, 6.3x). Hours
+  07 and 11 are also reliably above average, but only about 1.9x. Hour 03 and several other
+  small hours look high but have fewer than 20 fraud cases, so no conclusion is drawn.
+- **Amount:** the smallest payments (under 1) and the 500-1000 band are both reliably about 2.4x
+  and 2.3x the average (0.39%). The 1-10 band is slightly above average (1.3x) and holds the
+  most fraud cases (172 of 473). The 10-50 band is reliably lower than average (0.06%).
+- Both dimensions reconcile: 283,726 transactions and 473 fraud cases each.
 
 ## Limitations
 

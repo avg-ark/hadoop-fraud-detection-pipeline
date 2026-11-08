@@ -1,0 +1,32 @@
+flowchart LR
+    SRC["Kaggle CSV<br/>creditcard.csv<br/>284,807 rows"]
+    HDFSRAW[("HDFS /fraud/raw")]
+    SRC -->|"hdfs dfs -put"| HDFSRAW
+
+    subgraph J1["JOB 1: Cleaning (Hadoop Streaming)"]
+        direction TB
+        CM["clean_mapper.py<br/>drop header, blank, malformed,<br/>non-numeric, out-of-range rows<br/>key = cleaned row, value = 1"]
+        SH1{{"shuffle + sort<br/>identical rows become adjacent"}}
+        CR["clean_reducer.py<br/>keep one copy of each row"]
+        CM --> SH1 --> CR
+    end
+    HDFSRAW --> CM
+    CR --> HDFSCLEAN[("HDFS /fraud/clean<br/>283,726 unique rows")]
+
+    subgraph J2["JOB 2: Fraud analysis (run with and without the Combiner)"]
+        direction TB
+        FM["fraud_mapper.py<br/>2 pairs per transaction<br/>HOUR,hh and AMT,band<br/>value = count,fraud,amount_sum"]
+        FC["fraud_combiner.py (optional)<br/>local pre-sum per mapper<br/>567,452 records down to 58"]
+        PT{{"key-field partitioner<br/>fields 1-2, 31 keys over 2 reducers<br/>+ shuffle and sort"}}
+        FR["fraud_reducer.py<br/>sum, then fraud rate % and average amount"]
+        FM --> FC --> PT --> FR
+    end
+    HDFSCLEAN --> FM
+    FR --> OUT[("HDFS /fraud/out_combiner<br/>and /fraud/out_nocombiner")]
+
+    OUT --> VAL{"diff the two outputs<br/>VALIDATION OK"}
+    VAL --> RES["results/results.tsv<br/>31 rows"]
+    RES --> RANK["rank_results.py<br/>ranking + 95% confidence intervals"]
+    RES --> PLOT["plot_results.py<br/>charts"]
+    RANK --> R1["results/ranking.tsv"]
+    PLOT --> R2["results/charts/*.png"]
