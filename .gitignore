@@ -1,0 +1,34 @@
+# Data - download it yourself (see data/README.md)
+data/*
+!data/README.md
+*.zip
+synthetic.csv
+
+# Local runs and scratch output
+results/local/
+logs/run_log.txt
+*.log
+
+# Python
+__pycache__/
+*.pyc
+
+# Editors
+.vscode/
+.idea/
+
+# Archives
+*.tar.gz
+
+# Secrets - never commit these
+.kaggle/
+kaggle.json
+id_*
+*.pem
+*.key
+*.p12
+*.jks
+*.token
+secrets*
+.env
+.env.*

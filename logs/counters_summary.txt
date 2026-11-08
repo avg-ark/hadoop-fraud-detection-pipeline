@@ -1,0 +1,14 @@
+		Combine output records=0
+		Reduce input groups=283726
+		Reduce shuffle bytes=152537423
+		duplicate_rows=1081
+		header_rows=1
+		valid_rows=284807
+		Combine output records=58
+		Reduce input groups=31
+		Reduce shuffle bytes=1606
+real	0m32.574s
+		Combine output records=0
+		Reduce input groups=31
+		Reduce shuffle bytes=10708562
+real	0m29.865s
